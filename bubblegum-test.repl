@@ -1,0 +1,111 @@
+;BUBBLE GUM NFT TESTS
+
+;;////////////////////
+;;COIN ACCOUNT STUFF
+;;////////////////////
+
+;; Enable the table gas model and load the coin contract + create coin contract tables
+(env-gasmodel "table")
+(env-exec-config ['DisableInlineMemCheck])
+(env-gaslimit 500000)
+(begin-tx)
+(env-gas 0) (env-gaslog)
+(load "fungible-v2.pact")
+(load "fungible-xchain-v1.pact")
+(load "fungible-util.pact")
+(load "poly-fungible-v1.pact")
+(load "coin.pact")
+(create-table coin.coin-table)
+(create-table coin.allocation-table)
+(env-gaslog)
+(commit-tx)
+
+;;///////////////////////////////////////////////////////////////////
+;Create test keys + Load STAKE token for testing DAO token transfers
+;////////////////////////////////////////////////////////////////////
+
+(begin-tx)
+(env-data { 'ns: 'test })
+(env-data { "k:emily" : ["emily"], "admin-bubblegum": ["keys2"], "k:stuart": ["stuart"], "k:doug": ["doug"], "k:kitty": ["kitty"], "prev-block-hash": "lPqiP54vy_E3rAkvgQVme2FreVXpVhOV3dIJYENZ2Zk" })
+(env-keys ["emily", "keys2", "stuart", "doug", "kitty"])
+(define-namespace 'test (read-keyset "k:emily") (read-keyset "k:emily"))
+(namespace 'test)
+(commit-tx)
+(begin-tx)
+(env-data { 'ns: 'test })
+(load "stake.pact")
+(create-table token-table)
+(load "bubblegum.pact")
+(create-table ledger)
+(create-table supplies)
+(create-table metadata-table)
+(env-data { "k:emily" : ["emily"], "admin-bubblegum": ["keys2"], "k:stuart": ["stuart"], "k:doug": ["doug"], "k:kitty": ["kitty"], "prev-block-hash": "lPqiP54vy_E3rAkvgQVme2FreVXpVhOV3dIJYENZ2Zk" })
+(env-keys ["emily", "keys2", "stuart", "doug", "kitty"])
+(namespace 'test)
+(define-keyset "test.emily" (read-keyset "k:emily"))
+(define-keyset "test.doug" (read-keyset "k:doug"))
+(define-keyset "test.admin-bubblegum" (read-keyset "admin-bubblegum"))
+(define-keyset "test.stuart" (read-keyset "k:stuart"))
+(define-keyset "test.kitty" (read-keyset "k:kitty"))
+(test.stake-token.initialize)
+(test.stake-token.move-premine "k:emily"(read-keyset "k:emily") 10000.0  )
+(test.stake-token.get-balance "k:emily")
+(commit-tx)
+
+;///////////////////////////////////////////
+;Credit test STAKE token to test app with
+;//////////////////////////////////////////
+(begin-tx)
+(test-capability (test.stake-token.TRANSFER "k:emily" "k:kitty" 1000.0))
+(test.stake-token.transfer-create "k:emily" "k:kitty" (read-keyset "k:kitty") 1000.0)
+(test-capability (test.stake-token.TRANSFER "k:emily" "k:doug" 1000.0))
+(test.stake-token.transfer-create "k:emily" "k:doug" (read-keyset "k:doug") 1000.0)
+(test-capability (test.stake-token.TRANSFER "k:emily" "k:stuart" 1000.0))
+(test.stake-token.transfer-create "k:emily" "k:stuart" (read-keyset "k:stuart") 1000.0)
+(commit-tx)
+
+
+;/////////////////////////////
+;Create test coin accounts
+;//////////////////////////////
+
+(begin-tx)
+(use coin)
+(create-account "k:emily" (read-keyset "k:emily"))
+(create-account 'admin-bubblegum (read-keyset 'admin-bubblegum))
+(create-account "k:stuart" (read-keyset "k:stuart"))
+(create-account "k:doug" (read-keyset "k:doug"))
+(create-account "k:kitty" (read-keyset "k:kitty"))
+(commit-tx)
+
+;///////////////////////////////
+;Credit test accounts test KDA
+;////////////////////////////////
+(begin-tx)
+(use coin)
+(test-capability (DEBIT "k:emily"))
+(test-capability (CREDIT "k:emily"))
+(credit "k:emily" (read-keyset "k:emily") 1000.0)
+(test-capability (CREDIT "k:kitty"))
+(credit "k:kitty" (read-keyset "k:kitty") 1000.0)
+(test-capability (CREDIT "k:doug"))
+(credit "k:doug" (read-keyset "k:doug") 1000.0)
+(test-capability (CREDIT "admin-bubblegum"))
+(credit 'admin-bubblegum (read-keyset 'admin-bubblegum) 1000.0)
+(test-capability (CREDIT "k:stuart"))
+(credit "k:stuart" (read-keyset "k:stuart") 1000.0)
+(commit-tx)
+
+;Test mint NFT
+(begin-tx)
+(env-data { "k:emily" : ["emily"], "admin-bubblegum": ["keys2"], "k:stuart": ["stuart"], "k:doug": ["doug"], "k:kitty": ["kitty"], "prev-block-hash": "lPqiP54vy_E3rAkvgQVme2FreVXpVhOV3dIJYENZ2Zk" })
+(env-keys ["emily", "keys2", "stuart", "doug", "kitty"])
+(test-capability (coin.TRANSFER "k:emily" "admin-bubblegum" 20.00))
+(test.bubblegum.mint-nft "k:emily" (read-keyset "k:emily") "lala")
+(test.bubblegum.get-user-nfts "k:emily")
+(commit-tx)
+
+;Test URI
+(begin-tx)
+(test.bubblegum.uri "CxWcxB5uJGmFZiVe0VSwufHYaqMDReMhw4gkOeZu6aE")
+(commit-tx)
